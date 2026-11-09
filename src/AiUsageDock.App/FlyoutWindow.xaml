@@ -1,0 +1,93 @@
+<Window x:Class="AiUsageDock.App.FlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI 사용량"
+        Width="430" Height="490"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="#18181C"
+        FontFamily="Segoe UI, Malgun Gothic"
+        Foreground="#E6EDF3">
+    <Border BorderBrush="#38383F" BorderThickness="1" Padding="18">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,14">
+                <TextBlock Text="AI 사용량" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="RefreshButton" Content="새로고침" Click="OnRefreshClick"
+                            Padding="10,4" Margin="0,0,6,0" FontSize="12" Cursor="Hand"
+                            Background="#21262D" Foreground="#E6EDF3" BorderBrush="#38383F" BorderThickness="1"/>
+                    <Button x:Name="SettingsButton" Content="설정" Click="OnSettingsClick"
+                            Padding="10,4" Margin="0,0,6,0" FontSize="12" Cursor="Hand"
+                            Background="#21262D" Foreground="#E6EDF3" BorderBrush="#38383F" BorderThickness="1"/>
+                    <Button x:Name="ExitButton" Content="종료" Click="OnExitClick"
+                            Padding="10,4" FontSize="12" Cursor="Hand"
+                            Background="#21262D" Foreground="#E6EDF3" BorderBrush="#38383F" BorderThickness="1"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- DeepSeek section -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                <TextBlock Text="DEEPSEEK API" FontSize="11" FontWeight="SemiBold"
+                           Foreground="#6E7681" Margin="0,0,0,6"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="DeepSeekBalanceText" Text="$--.--" FontSize="28" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="DeepSeekBadgeText" Text="사용 가능" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#3FB950" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </StackPanel>
+                <TextBlock x:Name="DeepSeekDetailText" Text="충전 $0.00 · 보너스 $0.00 · USD"
+                           FontSize="12" Foreground="#8B949E" Margin="0,4,0,0"/>
+                <TextBlock x:Name="DeepSeekSpendText" Text="오늘 사용 -$0.00 (추정)"
+                           FontSize="12" Foreground="#D29922" Margin="0,2,0,0"/>
+            </StackPanel>
+
+            <!-- Antigravity section -->
+            <Grid Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="ANTIGRAVITY" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#6E7681" VerticalAlignment="Center"/>
+                        <Border Background="#21262D" BorderBrush="#38383F" BorderThickness="1"
+                                CornerRadius="4" Padding="6,1" Margin="8,0,0,0">
+                            <TextBlock x:Name="PlanBadgeText" Text="Pro" FontSize="11" Foreground="#58A6FF"/>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Ellipse x:Name="AgStatusDot" Width="8" Height="8" Fill="#3FB950"
+                                 VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock x:Name="AgStatusText" Text="앱 실행 중 · 30초 주기"
+                                   FontSize="11" Foreground="#8B949E" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" BorderBrush="#38383F" BorderThickness="0,1,0,0" Margin="0,0,0,6"/>
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="ModelsPanel"/>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Footer -->
+            <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                <Border BorderBrush="#38383F" BorderThickness="0,1,0,0" Margin="0,0,0,8"/>
+                <TextBlock x:Name="SummaryText" Text="모델 0개 · 쿼터 그룹 0개 · 행 클릭 시 작업표시줄 고정"
+                           FontSize="11" Foreground="#8B949E"/>
+                <TextBlock x:Name="FooterText" Text="마지막 갱신 --:--:-- · 자동 30초/5분 · v1.0"
+                           FontSize="11" Foreground="#6E7681" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
