@@ -10,7 +10,12 @@ namespace AiUsageDock.Core.Storage;
 
 public sealed record PollSettings(int DeepSeek = 300, int Antigravity = 30);
 
-public sealed record DockSettings(string Monitor = "primary", int OffsetX = 0, double Opacity = 0.96, string Theme = "dark");
+public sealed record DockSettings(
+    string Monitor = "primary",
+    int OffsetX = 0,
+    double Opacity = 0.96,
+    string Theme = "dark",
+    bool HideOnFullscreen = true);
 
 public sealed record AlertSettings(decimal LowBalance = 2.0m, double LowQuota = 0.15, bool Enabled = true);
 

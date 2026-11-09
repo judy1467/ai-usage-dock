@@ -55,6 +55,14 @@ internal sealed class TrayIconHost : IDisposable
         _notifyIcon.Text = text.Length <= 63 ? text : text[..63];
     }
 
+    public void ShowBalloon(string title, string text)
+    {
+        _notifyIcon.BalloonTipTitle = title;
+        _notifyIcon.BalloonTipText = text;
+        _notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+        _notifyIcon.ShowBalloonTip(4000);
+    }
+
     private static Icon CreateIcon()
     {
         using var bitmap = new Bitmap(32, 32);

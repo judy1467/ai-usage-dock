@@ -31,12 +31,16 @@ namespace AiUsageDock.App
                 result = ProviderResult.Ok(result.Snapshot with { DeepSeek = ds with { TodaySpendEstimate = spend } });
             }
             _store.Apply(DeepSeekAdapter.ProviderId, result);
+            _cacheStore.Save(_store.LastGoodDeepSeek, _store.LastGoodAntigravity);
+            EvaluateAlerts();
         }
 
         private async Task RefreshAntigravityAsync()
         {
             var res = await _antigravity.FetchAsync();
             _store.Apply(AntigravityAdapter.ProviderId, res);
+            _cacheStore.Save(_store.LastGoodDeepSeek, _store.LastGoodAntigravity);
+            EvaluateAlerts();
         }
 
         private void UpdateDockUi()
@@ -159,7 +163,16 @@ namespace AiUsageDock.App
                 return;
             }
 
-            _flyout = new FlyoutWindow(_store, RefreshAllAsync, OpenSettingsWindow, TogglePin, GetPinned) { WindowStartupLocation = WindowStartupLocation.Manual };
+            _flyout = new FlyoutWindow(
+                _store,
+                RefreshAllAsync,
+                OpenSettingsWindow,
+                TogglePin,
+                GetPinned,
+                () => _historyStore.LoadRecent(DateTimeOffset.UtcNow.AddDays(-7)))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual,
+            };
             _flyout.Closed += (_, _) => { _flyoutClosedUtc = DateTimeOffset.UtcNow; _flyout = null; };
 
             var workArea = SystemParameters.WorkArea;
@@ -189,10 +202,10 @@ namespace AiUsageDock.App
             _isSettingsOpen = true;
             try
             {
-                var win = new SettingsWindow(_settingsStore, _secretStore, async () => { PositionAboveTaskbar(); await RefreshAllAsync(); UpdateDockUi(); });
+                var win = new SettingsWindow(_settingsStore, _secretStore, async () => { UpdateDockGeometry(); await RefreshAllAsync(); UpdateDockUi(); });
                 win.ShowDialog();
                 _settings = _settingsStore.Load();
-                PositionAboveTaskbar();
+                UpdateDockGeometry();
                 UpdateDockUi();
             }
             finally

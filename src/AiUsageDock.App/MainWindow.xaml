@@ -29,7 +29,7 @@
             BorderThickness="1"
             CornerRadius="8"
             Background="#1E1E22"
-            Padding="8,5">
+             Padding="8,2">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="92"/>
@@ -42,11 +42,11 @@
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="5" Height="5" Fill="#4D6BFE" Margin="0,0,4,0"/>
-                    <TextBlock Text="DeepSeek" FontSize="9.5" Foreground="#8B949E"/>
+                    <TextBlock Text="DeepSeek" FontSize="9" Foreground="#8B949E"/>
                 </StackPanel>
                 <TextBlock x:Name="DeepSeekValueText"
                            Text="$--.--"
-                           FontSize="12.5"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="#E6EDF3"
                            Margin="0,1,0,0"/>
@@ -55,27 +55,27 @@
             <Grid Grid.Column="1">
                 <Border Width="1" Background="#38383F" HorizontalAlignment="Left" Margin="0,2"/>
                 <StackPanel Margin="7,0,3,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="Tile1Label" Text="Antigravity 1" FontSize="9.5" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="Tile1Value" Text="--" FontSize="11.5" FontWeight="Bold" Foreground="#E6EDF3"/>
-                    <ProgressBar x:Name="Tile1Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="Tile1Label" Text="Antigravity 1" FontSize="9" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="Tile1Value" Text="--" FontSize="12" FontWeight="Bold" Foreground="#E6EDF3"/>
+                    <ProgressBar x:Name="Tile1Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,1,0,0"/>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Column="2">
                 <Border Width="1" Background="#38383F" HorizontalAlignment="Left" Margin="0,2"/>
                 <StackPanel Margin="7,0,3,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="Tile2Label" Text="Antigravity 2" FontSize="9.5" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="Tile2Value" Text="--" FontSize="11.5" FontWeight="Bold" Foreground="#E6EDF3"/>
-                    <ProgressBar x:Name="Tile2Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="Tile2Label" Text="Antigravity 2" FontSize="9" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="Tile2Value" Text="--" FontSize="12" FontWeight="Bold" Foreground="#E6EDF3"/>
+                    <ProgressBar x:Name="Tile2Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,1,0,0"/>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Column="3">
                 <Border Width="1" Background="#38383F" HorizontalAlignment="Left" Margin="0,2"/>
                 <StackPanel Margin="7,0,3,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="Tile3Label" Text="Antigravity 3" FontSize="9.5" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="Tile3Value" Text="--" FontSize="11.5" FontWeight="Bold" Foreground="#E6EDF3"/>
-                    <ProgressBar x:Name="Tile3Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="Tile3Label" Text="Antigravity 3" FontSize="9" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="Tile3Value" Text="--" FontSize="12" FontWeight="Bold" Foreground="#E6EDF3"/>
+                    <ProgressBar x:Name="Tile3Bar" Height="2.5" Minimum="0" Maximum="100" Background="#30363D" Foreground="#3FB950" BorderThickness="0" Value="0" Margin="0,1,0,0"/>
                 </StackPanel>
             </Grid>
 

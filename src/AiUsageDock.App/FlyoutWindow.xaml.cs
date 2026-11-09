@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +24,7 @@ public partial class FlyoutWindow : Window
     private readonly Action _onOpenSettings;
     private readonly Action<string> _onTogglePin;
     private readonly Func<IReadOnlyList<string>> _getPinned;
+    private readonly Func<IReadOnlyList<BalanceHistoryPoint>> _getHistory;
     private DateTimeOffset _shownAtUtc;
     private bool _closing;
 
@@ -31,13 +33,15 @@ public partial class FlyoutWindow : Window
         Func<Task> onRefresh,
         Action onOpenSettings,
         Action<string> onTogglePin,
-        Func<IReadOnlyList<string>> getPinned)
+        Func<IReadOnlyList<string>> getPinned,
+        Func<IReadOnlyList<BalanceHistoryPoint>> getHistory)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _onRefresh = onRefresh ?? throw new ArgumentNullException(nameof(onRefresh));
         _onOpenSettings = onOpenSettings ?? throw new ArgumentNullException(nameof(onOpenSettings));
         _onTogglePin = onTogglePin ?? throw new ArgumentNullException(nameof(onTogglePin));
         _getPinned = getPinned ?? throw new ArgumentNullException(nameof(getPinned));
+        _getHistory = getHistory ?? throw new ArgumentNullException(nameof(getHistory));
 
         InitializeComponent();
 
@@ -92,6 +96,8 @@ public partial class FlyoutWindow : Window
         PlanBadgeText.Text = antigravity?.PlanName ?? "플랜 -";
         AgStatusDot.Fill = HealthBrush(agHealth);
         AgStatusText.Text = HealthText(agHealth);
+
+        DrawSparkline(_getHistory());
 
         ModelsPanel.Children.Clear();
 
@@ -227,6 +233,86 @@ public partial class FlyoutWindow : Window
         {
             _closing = false;
         }
+    }
+
+    private void DrawSparkline(IReadOnlyList<BalanceHistoryPoint>? history)
+    {
+        SparkCanvas.Children.Clear();
+
+        if (history is null || history.Count(p => p is not null) < 2)
+        {
+            SparkCanvas.Visibility = Visibility.Collapsed;
+            SparkLabel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var points = history
+            .Where(p => p is not null)
+            .OrderBy(p => p.Timestamp)
+            .TakeLast(80)
+            .ToList();
+
+        if (points.Count < 2)
+        {
+            SparkCanvas.Visibility = Visibility.Collapsed;
+            SparkLabel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SparkCanvas.Visibility = Visibility.Visible;
+        SparkLabel.Visibility = Visibility.Visible;
+
+        var min = points.Min(p => p.Total);
+        var max = points.Max(p => p.Total);
+        var range = max - min;
+        var width = SparkCanvas.Width > 0 ? SparkCanvas.Width : 148;
+        var height = SparkCanvas.Height > 0 ? SparkCanvas.Height : 50;
+        const double pad = 3;
+
+        var mapped = new List<Point>(points.Count);
+        for (var i = 0; i < points.Count; i++)
+        {
+            var x = pad + (width - 2 * pad) * i / (points.Count - 1);
+            var normalized = range <= 0 ? 0.5 : (double)((points[i].Total - min) / range);
+            var y = pad + (height - 2 * pad) * (1 - normalized);
+            mapped.Add(new Point(x, y));
+        }
+
+        var area = new System.Windows.Shapes.Polygon
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(0x30, 0x6E, 0x8C, 0xFF)),
+        };
+        foreach (var point in mapped)
+        {
+            area.Points.Add(point);
+        }
+
+        area.Points.Add(new Point(width - pad, height - pad));
+        area.Points.Add(new Point(pad, height - pad));
+
+        var line = new System.Windows.Shapes.Polyline
+        {
+            Stroke = new SolidColorBrush(Color.FromRgb(0x8A, 0xA5, 0xFF)),
+            StrokeThickness = 1.6,
+            StrokeLineJoin = PenLineJoin.Round,
+        };
+        foreach (var point in mapped)
+        {
+            line.Points.Add(point);
+        }
+
+        var last = new System.Windows.Shapes.Ellipse
+        {
+            Width = 4,
+            Height = 4,
+            Fill = new SolidColorBrush(Color.FromRgb(0xB0, 0xC4, 0xFF)),
+        };
+        Canvas.SetLeft(last, mapped[^1].X - 2);
+        Canvas.SetTop(last, mapped[^1].Y - 2);
+
+        SparkCanvas.Children.Add(area);
+        SparkCanvas.Children.Add(line);
+        SparkCanvas.Children.Add(last);
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
