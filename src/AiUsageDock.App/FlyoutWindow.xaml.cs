@@ -73,7 +73,7 @@ public partial class FlyoutWindow : Window
         var antigravityResult = _store.AntigravityResult;
 
         var deepSeekHealth = deepSeekResult?.Health ?? ProviderHealth.Ok;
-        DeepSeekBadgeText.Text = HealthText(deepSeekHealth);
+        DeepSeekBadgeText.Text = deepSeekHealth == ProviderHealth.Ok ? "사용 가능" : HealthText(deepSeekHealth);
         DeepSeekBadgeText.Foreground = HealthBrush(deepSeekHealth);
 
         if (deepSeek is not null && deepSeek.Balances.Count > 0)
@@ -82,7 +82,7 @@ public partial class FlyoutWindow : Window
             DeepSeekBalanceText.Text = primary.FormatTotal();
             DeepSeekDetailText.Text = $"충전 {primary.Symbol}{primary.ToppedUp:F2} · 보너스 {primary.Symbol}{primary.Granted:F2} · {primary.Currency}";
             DeepSeekSpendText.Text = deepSeek.TodaySpendEstimate is { } spend
-                ? $"오늘 사용 ≈ {primary.Symbol}{spend:F2}"
+                ? $"오늘 사용 ≈ {primary.Symbol}{spend:F2} (추정)"
                 : "오늘 사용 -";
         }
         else
@@ -95,7 +95,15 @@ public partial class FlyoutWindow : Window
         var agHealth = antigravityResult?.Health ?? ProviderHealth.Ok;
         PlanBadgeText.Text = antigravity?.PlanName ?? "플랜 -";
         AgStatusDot.Fill = HealthBrush(agHealth);
-        AgStatusText.Text = HealthText(agHealth);
+        AgStatusText.Text = agHealth switch
+        {
+            ProviderHealth.Ok => "앱 실행 중 · 30초 주기",
+            ProviderHealth.Stale => "지연 · 재시도 중",
+            ProviderHealth.AppDown => "앱 꺼짐",
+            ProviderHealth.AuthFailed => "토큰 오류",
+            ProviderHealth.ParseFailed => "업데이트 필요",
+            _ => "연결 오류",
+        };
 
         DrawSparkline(_getHistory());
 
@@ -121,25 +129,13 @@ public partial class FlyoutWindow : Window
             }
         }
 
-        var parts = new List<string>();
-        if (deepSeek is not null)
-        {
-            parts.Add($"DeepSeek {deepSeek.FetchedAt.ToLocalTime():HH:mm}");
-        }
+        SummaryText.Text = antigravity is null
+            ? "수집된 데이터가 없습니다."
+            : $"모델 {antigravity.Models.Count}개 · 쿼터 그룹 {antigravity.PoolCount}개 · 5시간/주간 리셋";
 
-        if (antigravity is not null)
-        {
-            parts.Add($"Antigravity {antigravity.FetchedAt.ToLocalTime():HH:mm}");
-        }
-
-        SummaryText.Text = parts.Count == 0 ? "수집된 데이터가 없습니다." : string.Join(" · ", parts);
-        FooterText.Text = "Esc 닫기 · 행 클릭: 핀 고정";
-
-        if (antigravity is not null)
-        {
-            SummaryText.Text = $"모델 {antigravity.Models.Count}개 · 쿼터 풀 {antigravity.PoolCount}개 · 행 클릭 시 작업표시줄 고정";
-            FooterText.Text = $"마지막 갱신 {antigravity.FetchedAt.ToLocalTime():HH:mm:ss} · 자동 30초/5분 · Esc 닫기";
-        }
+        FooterText.Text = antigravity is null
+            ? "Esc 닫기 · 행 클릭: 핀 고정"
+            : $"마지막 갱신 {antigravity.FetchedAt.ToLocalTime():HH:mm:ss} · 자동 30초/5분 · v1.0";
     }
 
     private FrameworkElement BuildGroupRow(ModelQuotaGroup group, bool isPinned)
@@ -148,69 +144,81 @@ public partial class FlyoutWindow : Window
         var percent = hasValue ? group.RemainingFraction!.Value * 100.0 : 0.0;
         var accent = !hasValue ? Muted : percent > 40 ? Good : percent > 15 ? Warn : Bad;
 
-        var row = new Grid
+        var panel = new StackPanel
         {
-            Height = 26,
-            Margin = new Thickness(0, 1, 0, 1),
+            Margin = new Thickness(0, 0, 0, 6),
             Cursor = Cursors.Hand,
-            ToolTip = "클릭하여 핀 고정"
+            ToolTip = "클릭하여 핀 고정",
+            Background = Brushes.Transparent,
         };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var header = new Grid();
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var name = new TextBlock
         {
-            Text = (isPinned ? "★ " : string.Empty) + group.DisplayName,
-            FontSize = 12,
+            Text = group.DisplayName,
+            FontSize = 12.5,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
         };
+
         var percentText = new TextBlock
         {
             Text = hasValue ? $"{percent:F0}%" : "-",
-            FontSize = 12,
-            Margin = new Thickness(8, 0, 8, 0),
+            FontSize = 12.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xED, 0xF3)),
+            Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = accent
         };
+
+        Grid.SetColumn(percentText, 1);
+        header.Children.Add(name);
+        header.Children.Add(percentText);
+
         var bar = new ProgressBar
         {
-            Height = 4,
+            Height = 3.5,
             Minimum = 0,
             Maximum = 100,
             Value = Math.Clamp(percent, 0, 100),
             Foreground = accent,
             Background = Track,
-            VerticalAlignment = VerticalAlignment.Center
+            Margin = new Thickness(0, 3, 0, 0),
         };
+
         var reset = new TextBlock
         {
             Text = group.Models.Count > 0 ? group.Models[0].FormatResetTime(DateTimeOffset.Now) : "-",
-            FontSize = 11,
+            FontSize = 10.5,
             Foreground = Muted,
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
+            Margin = new Thickness(0, 2, 0, 0),
         };
 
-        Grid.SetColumn(name, 0);
-        Grid.SetColumn(percentText, 1);
-        Grid.SetColumn(bar, 2);
-        Grid.SetColumn(reset, 3);
-        row.Children.Add(name);
-        row.Children.Add(percentText);
-        row.Children.Add(bar);
-        row.Children.Add(reset);
+        panel.Children.Add(header);
+        panel.Children.Add(bar);
+        panel.Children.Add(reset);
 
-        row.MouseLeftButtonUp += (_, e) =>
+        panel.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
             _onTogglePin(group.Family);
             RenderSnapshot();
         };
 
-        return row;
+        return panel;
+    }
+
+    private void OnMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (MoreButton.ContextMenu is { } menu)
+        {
+            menu.PlacementTarget = MoreButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
     }
 
     private void SafeClose()
@@ -242,7 +250,6 @@ public partial class FlyoutWindow : Window
         if (history is null || history.Count(p => p is not null) < 2)
         {
             SparkCanvas.Visibility = Visibility.Collapsed;
-            SparkLabel.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -255,12 +262,10 @@ public partial class FlyoutWindow : Window
         if (points.Count < 2)
         {
             SparkCanvas.Visibility = Visibility.Collapsed;
-            SparkLabel.Visibility = Visibility.Collapsed;
             return;
         }
 
         SparkCanvas.Visibility = Visibility.Visible;
-        SparkLabel.Visibility = Visibility.Visible;
 
         var min = points.Min(p => p.Total);
         var max = points.Max(p => p.Total);
