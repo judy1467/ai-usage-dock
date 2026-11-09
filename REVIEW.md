@@ -32,7 +32,7 @@ dotnet test  tests\AiUsageDock.Core.Tests      # 20/20 통과
 | 6 | Major | 플라이아웃 `Deactivated`에서 `Close()` 예외 | `SafeClose()` + Dispatcher 지연 |
 | 7 | Minor | 500ms마다 `settings.json` 재읽기 | 메모리 캐시 |
 | 8 | Minor | `icacls` 빌드 타깃, `.gitignore`가 bin/obj 포함 | 제거·수정 |
-| 9 | Minor | 설정 창에서 **API 키 평문 표시** | `PasswordBox` + `sk-45d…6ffd` 마스킹 + 삭제 버튼 |
+| 9 | Minor | 설정 창에서 **API 키 평문 표시** | `PasswordBox` + `sk-abc…1234` 마스킹 + 삭제 버튼 |
 
 ## 3. 2차: 설계 대비 남은 격차 구현
 
@@ -60,7 +60,7 @@ dotnet test  tests\AiUsageDock.Core.Tests      # 20/20 통과
 ## 5. 실행
 
 ```powershell
-cd C:\Users\judy1\Desktop\deepseekharness\ai-usage-dock
+cd ai-usage-dock
 dotnet run --project src\AiUsageDock.App -c Release
 ```
 
