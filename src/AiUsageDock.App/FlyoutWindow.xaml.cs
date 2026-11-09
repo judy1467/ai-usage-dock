@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using AiUsageDock.Core.Models;
 using AiUsageDock.Core.Scheduling;
 
@@ -19,20 +20,23 @@ public partial class FlyoutWindow : Window
     private static readonly SolidColorBrush Muted = new(Color.FromRgb(0x8B, 0x94, 0x9E));
     private static readonly SolidColorBrush Track = new(Color.FromArgb(0x33, 0x8B, 0x94, 0x9E));
 
+    private const string DefaultHint = "행 클릭: 작업표시줄 고정/해제 (최대 3개)";
+
     private readonly UsageStore _store;
     private readonly Func<Task> _onRefresh;
     private readonly Action _onOpenSettings;
-    private readonly Action<string> _onTogglePin;
+    private readonly Func<string, bool> _onTogglePin;
     private readonly Func<IReadOnlyList<string>> _getPinned;
     private readonly Func<IReadOnlyList<BalanceHistoryPoint>> _getHistory;
     private DateTimeOffset _shownAtUtc;
     private bool _closing;
+    private DispatcherTimer? _hintTimer;
 
     public FlyoutWindow(
         UsageStore store,
         Func<Task> onRefresh,
         Action onOpenSettings,
-        Action<string> onTogglePin,
+        Func<string, bool> onTogglePin,
         Func<IReadOnlyList<string>> getPinned,
         Func<IReadOnlyList<BalanceHistoryPoint>> getHistory)
     {
@@ -129,9 +133,10 @@ public partial class FlyoutWindow : Window
             }
         }
 
+        var pinnedCount = _getPinned()?.Count ?? 0;
         SummaryText.Text = antigravity is null
             ? "수집된 데이터가 없습니다."
-            : $"모델 {antigravity.Models.Count}개 · 쿼터 그룹 {antigravity.PoolCount}개 · 5시간/주간 리셋";
+            : $"모델 {antigravity.Models.Count}개 · 쿼터 그룹 {antigravity.PoolCount}개 · 고정 {pinnedCount}/3 · 5시간/주간 리셋";
 
         FooterText.Text = antigravity is null
             ? "Esc 닫기 · 행 클릭: 핀 고정"
@@ -144,16 +149,22 @@ public partial class FlyoutWindow : Window
         var percent = hasValue ? group.RemainingFraction!.Value * 100.0 : 0.0;
         var accent = !hasValue ? Muted : percent > 40 ? Good : percent > 15 ? Warn : Bad;
 
-        var panel = new StackPanel
+        var row = new Border
         {
-            Margin = new Thickness(0, 0, 0, 6),
-            Cursor = Cursors.Hand,
-            ToolTip = "클릭하여 핀 고정",
             Background = Brushes.Transparent,
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4, 1, 4, 1),
+            Margin = new Thickness(-4, 0, -4, 4),
+            Cursor = Cursors.Hand,
+            ToolTip = isPinned ? "클릭하여 작업표시줄에서 해제" : "클릭하여 작업표시줄에 고정",
         };
+
+        var panel = new StackPanel();
+        row.Child = panel;
 
         var header = new Grid();
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var name = new TextBlock
@@ -163,6 +174,27 @@ public partial class FlyoutWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
+
+        Border? pinChip = null;
+        if (isPinned)
+        {
+            pinChip = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(0x1B, 0x2A, 0x3D)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0x2F, 0x4A, 0x6B)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 0, 5, 1),
+                Margin = new Thickness(7, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = "고정",
+                    FontSize = 9.5,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x58, 0xA6, 0xFF)),
+                },
+            };
+        }
 
         var percentText = new TextBlock
         {
@@ -174,9 +206,15 @@ public partial class FlyoutWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        Grid.SetColumn(percentText, 1);
+        Grid.SetColumn(name, 0);
+        Grid.SetColumn(percentText, 2);
         header.Children.Add(name);
         header.Children.Add(percentText);
+        if (pinChip is not null)
+        {
+            Grid.SetColumn(pinChip, 1);
+            header.Children.Add(pinChip);
+        }
 
         var bar = new ProgressBar
         {
@@ -201,14 +239,38 @@ public partial class FlyoutWindow : Window
         panel.Children.Add(bar);
         panel.Children.Add(reset);
 
-        panel.MouseLeftButtonUp += (_, e) =>
+        var hover = new SolidColorBrush(Color.FromRgb(0x1E, 0x22, 0x29));
+        row.MouseEnter += (_, _) => row.Background = hover;
+        row.MouseLeave += (_, _) => row.Background = Brushes.Transparent;
+        row.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
-            _onTogglePin(group.Family);
+            var applied = _onTogglePin(group.Family);
+            if (!applied)
+            {
+                ShowHint("독에는 최대 3개까지 고정할 수 있습니다. 하나를 해제한 뒤 다시 시도하세요.");
+            }
+
             RenderSnapshot();
         };
 
-        return panel;
+        return row;
+    }
+
+    private void ShowHint(string message)
+    {
+        HintText.Text = message;
+        HintText.Foreground = new SolidColorBrush(Color.FromRgb(0xD2, 0x99, 0x22));
+
+        _hintTimer?.Stop();
+        _hintTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+        _hintTimer.Tick += (_, _) =>
+        {
+            _hintTimer?.Stop();
+            HintText.Text = DefaultHint;
+            HintText.Foreground = Muted;
+        };
+        _hintTimer.Start();
     }
 
     private void OnMoreClick(object sender, RoutedEventArgs e)

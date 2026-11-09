@@ -129,7 +129,7 @@
                 <Border BorderBrush="#2A2A31" BorderThickness="0,1,0,0" Margin="0,0,0,8" />
                 <TextBlock x:Name="SummaryText" Text="모델 0개 · 쿼터 그룹 0개 · 5시간/주간 리셋"
                            FontSize="10.5" Foreground="#8B949E" />
-                <TextBlock Text="행을 클릭하면 작업표시줄에 고정 · 설정에서 주기 변경"
+                <TextBlock x:Name="HintText" Text="행 클릭: 작업표시줄 고정/해제 (최대 3개)"
                            FontSize="10.5" Foreground="#6E7681" Margin="0,3,0,0" />
                 <TextBlock x:Name="FooterText" Text="마지막 갱신 --:--:-- · 자동 30초/5분 · v1.0"
                            FontSize="10.5" Foreground="#6E7681" Margin="0,3,0,0" />

@@ -216,13 +216,29 @@ namespace AiUsageDock.App
 
         private static readonly string[] DefaultPinned = { "gemini-4-argon", "gemini-3.8-flash", "claude-opus-5-5" };
 
-        private void TogglePin(string family)
+        private bool TogglePin(string family)
         {
             var list = (_settings.Pinned ?? Array.Empty<string>()).ToList();
-            if (!list.Remove(family)) list.Add(family);
+
+            if (list.Remove(family))
+            {
+                _settings = _settings with { Pinned = list };
+                _settingsStore.Save(_settings);
+                UpdateDockUi();
+                return true;
+            }
+
+            // The dock has exactly three slots; refuse a fourth pin instead of silently hiding it.
+            if (list.Count >= 3)
+            {
+                return false;
+            }
+
+            list.Add(family);
             _settings = _settings with { Pinned = list };
             _settingsStore.Save(_settings);
             UpdateDockUi();
+            return true;
         }
 
         private IReadOnlyList<string> GetPinned() => _settings.Pinned ?? DefaultPinned;
