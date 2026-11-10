@@ -61,7 +61,7 @@ public static class QuotaWindows
     public static string FormatPercent(double? fraction) =>
         fraction is double value ? $"{value * 100:F0}%" : "–";
 
-    /// <summary>Formats "5h/weekly" the way the taskbar tile and flyout rows show it.</summary>
+    /// <summary>Formats "5h / weekly" the way the taskbar tile and flyout rows show it.</summary>
     public static string FormatPair(QuotaWindowPair pair) =>
-        $"{FormatPercent(pair.Session?.RemainingFraction)}/{FormatPercent(pair.Weekly?.RemainingFraction)}";
+        $"{FormatPercent(pair.Session?.RemainingFraction)} / {FormatPercent(pair.Weekly?.RemainingFraction)}";
 }

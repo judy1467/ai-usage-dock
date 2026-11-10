@@ -52,17 +52,17 @@ public class QuotaWindowTests
         var flash = QuotaWindows.Resolve(snapshot, "gemini-3.8-flash");
         Assert.Equal(1.0, flash.Session!.RemainingFraction!.Value, 6);
         Assert.Equal(0.8161635, flash.Weekly!.RemainingFraction!.Value, 6);
-        Assert.Equal("100%/82%", QuotaWindows.FormatPair(flash));
+        Assert.Equal("100% / 82%", QuotaWindows.FormatPair(flash));
         Assert.Equal(0.8161635, flash.Effective!.Value, 6);
 
         var claude = QuotaWindows.Resolve(snapshot, "claude-opus-5-5");
         Assert.Equal(0.4947604, claude.Weekly!.RemainingFraction!.Value, 6);
-        Assert.Equal("100%/49%", QuotaWindows.FormatPair(claude));
+        Assert.Equal("100% / 49%", QuotaWindows.FormatPair(claude));
 
         var argon = QuotaWindows.Resolve(snapshot, "gemini-4-argon");
         Assert.Null(argon.Session);
         Assert.Equal(0.0027796, argon.Weekly!.RemainingFraction!.Value, 6);
-        Assert.Equal("–/0%", QuotaWindows.FormatPair(argon));
+        Assert.Equal("– / 0%", QuotaWindows.FormatPair(argon));
         Assert.Equal(0.0027796, argon.Effective!.Value, 6);
     }
 
@@ -76,6 +76,7 @@ public class QuotaWindowTests
 
         Assert.False(pair.HasAny);
         Assert.Null(pair.Effective);
-        Assert.Equal("–/–", QuotaWindows.FormatPair(pair));
+        Assert.Equal("– / –", QuotaWindows.FormatPair(pair));
     }
 }
+

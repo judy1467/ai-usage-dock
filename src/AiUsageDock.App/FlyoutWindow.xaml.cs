@@ -208,7 +208,7 @@ public partial class FlyoutWindow : Window
         {
             Text = windows.HasAny
                 ? QuotaWindows.FormatPair(windows)
-                : hasValue ? $"{percent:F0}%/–" : "-",
+                : hasValue ? $"{percent:F0}% / –" : "-",
             FontSize = 12.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xED, 0xF3)),

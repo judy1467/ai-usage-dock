@@ -146,7 +146,7 @@ namespace AiUsageDock.App
             else if (group?.RemainingFraction is double legacy)
             {
                 // Quota summary unavailable (older app build): fall back to the per-model number.
-                value.Text = $"{legacy * 100:F0}%/–";
+                value.Text = $"{legacy * 100:F0}% / –";
                 effective = legacy;
             }
             else
