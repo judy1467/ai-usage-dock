@@ -84,9 +84,9 @@ namespace AiUsageDock.App
                 matched[i] = found;
             }
 
-            BindTile(Tile1Label, Tile1Value, Tile1Bar, matched[0], pinned.ElementAtOrDefault(0));
-            BindTile(Tile2Label, Tile2Value, Tile2Bar, matched[1], pinned.ElementAtOrDefault(1));
-            BindTile(Tile3Label, Tile3Value, Tile3Bar, matched[2], pinned.ElementAtOrDefault(2));
+            BindTile(Tile1Label, Tile1Value, Tile1Bar, matched[0], pinned.ElementAtOrDefault(0), _store.LastGoodAntigravity);
+            BindTile(Tile2Label, Tile2Value, Tile2Bar, matched[1], pinned.ElementAtOrDefault(1), _store.LastGoodAntigravity);
+            BindTile(Tile3Label, Tile3Value, Tile3Bar, matched[2], pinned.ElementAtOrDefault(2), _store.LastGoodAntigravity);
 
             var antigravityWorking = _store.LastGoodAntigravity is not null;
             var deepSeekKeyMissing = _store.DeepSeekResult?.ErrorCode == "key_missing";
@@ -123,21 +123,46 @@ namespace AiUsageDock.App
         private static Brush BrushForPercent(double pct) =>
             pct < 15 ? LowBrush : pct < 40 ? MidBrush : HighBrush;
 
-        private static void BindTile(TextBlock label, TextBlock value, ProgressBar bar, ModelQuotaGroup? group, string? fallbackFamily)
+        private static void BindTile(
+            TextBlock label,
+            TextBlock value,
+            ProgressBar bar,
+            ModelQuotaGroup? group,
+            string? fallbackFamily,
+            AntigravitySnapshot? snapshot)
         {
             var displayName = group?.DisplayName ?? fallbackFamily ?? "—";
             label.Text = ShortenDisplayName(displayName);
 
-            if (group?.RemainingFraction is double frac)
+            // Taskbar shows "5-hour / weekly" — the second number is the weekly limit.
+            var pair = QuotaWindows.Resolve(snapshot, group?.Family ?? fallbackFamily);
+
+            double? effective;
+            if (pair.HasAny)
             {
-                var pct = frac * 100.0;
-                value.Text = $"{pct:F0}%";
+                value.Text = QuotaWindows.FormatPair(pair);
+                effective = pair.Effective;
+            }
+            else if (group?.RemainingFraction is double legacy)
+            {
+                // Quota summary unavailable (older app build): fall back to the per-model number.
+                value.Text = $"{legacy * 100:F0}%/–";
+                effective = legacy;
+            }
+            else
+            {
+                value.Text = "—";
+                effective = null;
+            }
+
+            if (effective is double fraction)
+            {
+                var pct = fraction * 100.0;
                 bar.Value = Math.Clamp(pct, 0, 100);
                 bar.Foreground = BrushForPercent(pct);
             }
             else
             {
-                value.Text = "—";
                 bar.Value = 0;
                 bar.Foreground = LowBrush;
             }

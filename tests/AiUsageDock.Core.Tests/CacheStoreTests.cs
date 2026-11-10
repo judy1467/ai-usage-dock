@@ -57,7 +57,15 @@ public sealed class CacheStoreTests : IDisposable
             new("claude-opus-5-5-high", "claude-opus-5-5", "Claude Opus 5.5 (High)", 1.0, reset2),
         };
         var (groups, pools) = QuotaGrouper.GroupModels(models);
-        var snapshot = new AntigravitySnapshot("Pro", "g1-pro-tier", models, groups, pools, DateTimeOffset.UtcNow);
+        var quotaGroups = new[]
+        {
+            new QuotaGroupSummary("Gemini Models", new[]
+            {
+                new QuotaBucket("gemini-weekly", "Weekly Limit Remaining", "weekly", 0.82, reset),
+                new QuotaBucket("gemini-5h", "Five Hour Limit Remaining", "5h", 1.0, reset2),
+            }),
+        };
+        var snapshot = new AntigravitySnapshot("Pro", "g1-pro-tier", models, groups, pools, DateTimeOffset.UtcNow, quotaGroups);
 
         store.Save(null, snapshot);
         var loaded = store.Load();
@@ -69,6 +77,11 @@ public sealed class CacheStoreTests : IDisposable
         Assert.Equal(2, ag.FamilyGroups.Count);
         Assert.Equal(2, ag.PoolCount);
         Assert.Equal(reset, ag.FamilyGroups[0].ResetAt!.Value.ToUniversalTime());
+        Assert.NotNull(ag.QuotaGroups);
+        Assert.Single(ag.QuotaGroups!);
+        Assert.Equal(2, ag.QuotaGroups![0].Buckets.Count);
+        Assert.Equal("gemini-weekly", ag.QuotaGroups[0].Buckets[0].BucketId);
+        Assert.Equal(0.82, ag.QuotaGroups[0].Buckets[0].RemainingFraction!.Value, 6);
     }
 
     [Fact]

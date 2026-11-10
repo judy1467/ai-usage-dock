@@ -56,14 +56,19 @@ public sealed record ModelQuota(
 {
     public double? RemainingPercent => RemainingFraction.HasValue ? RemainingFraction.Value * 100.0 : null;
 
-    public string FormatResetTime(DateTimeOffset now)
+    public string FormatResetTime(DateTimeOffset now) => ResetFormatting.Format(ResetAt, now);
+}
+
+public static class ResetFormatting
+{
+    public static string Format(DateTimeOffset? resetAt, DateTimeOffset now)
     {
-        if (ResetAt is null)
+        if (resetAt is null)
         {
             return "-";
         }
 
-        var resetLocal = ResetAt.Value.ToLocalTime();
+        var resetLocal = resetAt.Value.ToLocalTime();
         var nowLocal = now.ToLocalTime();
         var diff = resetLocal - nowLocal;
 
@@ -83,6 +88,23 @@ public sealed record ModelQuota(
     }
 }
 
+/// <summary>
+/// One pooled quota window from RetrieveUserQuotaSummary (e.g. gemini-weekly, 3p-5h).
+/// </summary>
+public sealed record QuotaBucket(
+    string BucketId,
+    string DisplayName,
+    string Window,
+    double? RemainingFraction,
+    DateTimeOffset? ResetAt)
+{
+    public double? RemainingPercent => RemainingFraction * 100.0;
+
+    public string FormatResetTime(DateTimeOffset now) => ResetFormatting.Format(ResetAt, now);
+}
+
+public sealed record QuotaGroupSummary(string DisplayName, IReadOnlyList<QuotaBucket> Buckets);
+
 public sealed record ModelQuotaGroup(
     string Family,
     string DisplayName,
@@ -96,7 +118,8 @@ public sealed record AntigravitySnapshot(
     IReadOnlyList<ModelQuota> Models,
     IReadOnlyList<ModelQuotaGroup> FamilyGroups,
     int PoolCount,
-    DateTimeOffset FetchedAt);
+    DateTimeOffset FetchedAt,
+    IReadOnlyList<QuotaGroupSummary>? QuotaGroups = null);
 
 public sealed record ProviderSnapshot(
     string ProviderId,

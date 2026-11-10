@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AiUsageDock.Core.Models;
+using AiUsageDock.Core.Providers.Antigravity;
 using AiUsageDock.Core.Scheduling;
 
 namespace AiUsageDock.App;
@@ -20,7 +21,7 @@ public partial class FlyoutWindow : Window
     private static readonly SolidColorBrush Muted = new(Color.FromRgb(0x8B, 0x94, 0x9E));
     private static readonly SolidColorBrush Track = new(Color.FromArgb(0x33, 0x8B, 0x94, 0x9E));
 
-    private const string DefaultHint = "행 클릭: 작업표시줄 고정/해제 (최대 3개)";
+    private const string DefaultHint = "값: 5시간/주간 · 행 클릭: 고정/해제 (최대 3개)";
 
     private readonly UsageStore _store;
     private readonly Func<Task> _onRefresh;
@@ -49,15 +50,18 @@ public partial class FlyoutWindow : Window
 
         InitializeComponent();
 
+        // Stamp before Show: activation can fail for a NOACTIVATE owner and fire Deactivated
+        // immediately, which previously closed the panel as soon as it opened.
+        _shownAtUtc = DateTimeOffset.UtcNow;
+
         Loaded += (_, _) =>
         {
-            _shownAtUtc = DateTimeOffset.UtcNow;
             Activate();
         };
 
         Deactivated += (_, _) =>
         {
-            if ((DateTimeOffset.UtcNow - _shownAtUtc).TotalMilliseconds > 200)
+            if ((DateTimeOffset.UtcNow - _shownAtUtc).TotalMilliseconds > 250)
             {
                 // Closing directly inside WM_ACTIVATE throws (Window.VerifyNotClosing).
                 Dispatcher.BeginInvoke(new Action(SafeClose), System.Windows.Threading.DispatcherPriority.Background);
@@ -129,7 +133,7 @@ public partial class FlyoutWindow : Window
 
             foreach (var group in antigravity.FamilyGroups)
             {
-                ModelsPanel.Children.Add(BuildGroupRow(group, pinned.Contains(group.Family)));
+                ModelsPanel.Children.Add(BuildGroupRow(group, pinned.Contains(group.Family), antigravity));
             }
         }
 
@@ -143,10 +147,14 @@ public partial class FlyoutWindow : Window
             : $"마지막 갱신 {antigravity.FetchedAt.ToLocalTime():HH:mm:ss} · 자동 30초/5분 · v1.0";
     }
 
-    private FrameworkElement BuildGroupRow(ModelQuotaGroup group, bool isPinned)
+    private FrameworkElement BuildGroupRow(ModelQuotaGroup group, bool isPinned, AntigravitySnapshot snapshot)
     {
-        var hasValue = group.RemainingFraction.HasValue;
-        var percent = hasValue ? group.RemainingFraction!.Value * 100.0 : 0.0;
+        var windows = QuotaWindows.Resolve(snapshot, group.Family);
+        var sessionFraction = windows.Session?.RemainingFraction;
+        var weeklyFraction = windows.Weekly?.RemainingFraction;
+        var effective = windows.Effective ?? group.RemainingFraction;
+        var percent = effective is double value ? value * 100.0 : 0.0;
+        var hasValue = effective.HasValue;
         var accent = !hasValue ? Muted : percent > 40 ? Good : percent > 15 ? Warn : Bad;
 
         var row = new Border
@@ -198,12 +206,15 @@ public partial class FlyoutWindow : Window
 
         var percentText = new TextBlock
         {
-            Text = hasValue ? $"{percent:F0}%" : "-",
+            Text = windows.HasAny
+                ? QuotaWindows.FormatPair(windows)
+                : hasValue ? $"{percent:F0}%/–" : "-",
             FontSize = 12.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xED, 0xF3)),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "5시간/주간 남은 비율",
         };
 
         Grid.SetColumn(name, 0);
@@ -227,9 +238,26 @@ public partial class FlyoutWindow : Window
             Margin = new Thickness(0, 3, 0, 0),
         };
 
+        var now = DateTimeOffset.Now;
+        var resetParts = new List<string>();
+        if (windows.Session is { } session)
+        {
+            resetParts.Add($"5h {session.FormatResetTime(now)}");
+        }
+
+        if (windows.Weekly is { } weekly)
+        {
+            resetParts.Add($"주간 {weekly.FormatResetTime(now)}");
+        }
+
+        if (resetParts.Count == 0 && group.Models.Count > 0)
+        {
+            resetParts.Add(group.Models[0].FormatResetTime(now));
+        }
+
         var reset = new TextBlock
         {
-            Text = group.Models.Count > 0 ? group.Models[0].FormatResetTime(DateTimeOffset.Now) : "-",
+            Text = resetParts.Count > 0 ? string.Join(" · ", resetParts) : "-",
             FontSize = 10.5,
             Foreground = Muted,
             Margin = new Thickness(0, 2, 0, 0),

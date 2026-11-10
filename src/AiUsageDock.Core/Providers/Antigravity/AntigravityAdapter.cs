@@ -12,6 +12,7 @@ public sealed class AntigravityAdapter : IUsageProvider
     public const string ProviderId = "antigravity";
 
     private const string ServicePath = "/exa.language_server_pb.LanguageServerService/GetUserStatus";
+    private const string QuotaSummaryPath = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
     private const string RequestBody = "{\"metadata\":{\"ideName\":\"antigravity\",\"extensionName\":\"antigravity\",\"ideVersion\":\"unknown\",\"locale\":\"en\"}}";
 
     private readonly HttpClient _httpClient;
@@ -88,7 +89,24 @@ public sealed class AntigravityAdapter : IUsageProvider
 
             if (outcome.Status == HttpStatusCode.OK && outcome.Body is not null)
             {
-                return ParseResponse(outcome.Body, _timeProvider.GetUtcNow());
+                var fetchedAt = _timeProvider.GetUtcNow();
+                var result = ParseResponse(outcome.Body, fetchedAt);
+
+                // GetUserStatus carries one quota per model; the 5h/weekly split lives in
+                // RetrieveUserQuotaSummary. A failure there must not hide the model list.
+                if (result.Snapshot?.Antigravity is { } antigravity && _cachedEndpoint is not null)
+                {
+                    var groups = await TryFetchQuotaSummaryAsync(_cachedEndpoint, ct).ConfigureAwait(false);
+                    if (groups is { Count: > 0 })
+                    {
+                        result = ProviderResult.Ok(result.Snapshot with
+                        {
+                            Antigravity = antigravity with { QuotaGroups = groups },
+                        });
+                    }
+                }
+
+                return result;
             }
 
             if (outcome.Status == HttpStatusCode.Unauthorized)
@@ -230,6 +248,125 @@ public sealed class AntigravityAdapter : IUsageProvider
                 ProviderHealth.ParseFailed,
                 "schema_changed",
                 "Invalid Antigravity JSON response.");
+        }
+    }
+
+    private async Task<IReadOnlyList<QuotaGroupSummary>?> TryFetchQuotaSummaryAsync(
+        AntigravityEndpoint endpoint,
+        CancellationToken ct)
+    {
+        try
+        {
+            var uri = $"https://127.0.0.1:{endpoint.Port}{QuotaSummaryPath}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+            request.Headers.TryAddWithoutValidation("x-codeium-csrf-token", endpoint.CsrfToken ?? string.Empty);
+            request.Headers.TryAddWithoutValidation("Connect-Protocol-Version", "1");
+            request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseContentRead, ct)
+                .ConfigureAwait(false);
+
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                return null;
+            }
+
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return ParseQuotaSummary(body);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses RetrieveUserQuotaSummary: pooled "5h" and "weekly" buckets per model group.
+    /// </summary>
+    public static IReadOnlyList<QuotaGroupSummary> ParseQuotaSummary(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.TryGetProperty("response", out var wrapper) && wrapper.ValueKind == JsonValueKind.Object)
+            {
+                root = wrapper;
+            }
+
+            if (!root.TryGetProperty("groups", out var groupsElement) || groupsElement.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<QuotaGroupSummary>();
+            }
+
+            var result = new List<QuotaGroupSummary>();
+            foreach (var groupElement in groupsElement.EnumerateArray())
+            {
+                if (groupElement.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var name = GetString(groupElement, "displayName") ?? "Quota";
+                var buckets = new List<QuotaBucket>();
+
+                if (groupElement.TryGetProperty("buckets", out var bucketsElement) &&
+                    bucketsElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var bucketElement in bucketsElement.EnumerateArray())
+                    {
+                        var id = GetString(bucketElement, "bucketId");
+                        if (string.IsNullOrWhiteSpace(id))
+                        {
+                            continue;
+                        }
+
+                        double? fraction = null;
+                        if (bucketElement.TryGetProperty("remainingFraction", out var fractionElement) &&
+                            fractionElement.ValueKind == JsonValueKind.Number &&
+                            fractionElement.TryGetDouble(out var fractionValue))
+                        {
+                            fraction = fractionValue;
+                        }
+
+                        DateTimeOffset? resetAt = null;
+                        if (bucketElement.TryGetProperty("resetTime", out var resetElement) &&
+                            resetElement.ValueKind == JsonValueKind.String &&
+                            DateTimeOffset.TryParse(
+                                resetElement.GetString(),
+                                CultureInfo.InvariantCulture,
+                                DateTimeStyles.RoundtripKind,
+                                out var resetValue))
+                        {
+                            resetAt = resetValue;
+                        }
+
+                        buckets.Add(new QuotaBucket(
+                            id!,
+                            GetString(bucketElement, "displayName") ?? id!,
+                            GetString(bucketElement, "window") ?? string.Empty,
+                            fraction,
+                            resetAt));
+                    }
+                }
+
+                if (buckets.Count > 0)
+                {
+                    result.Add(new QuotaGroupSummary(name, buckets));
+                }
+            }
+
+            return result;
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<QuotaGroupSummary>();
         }
     }
 

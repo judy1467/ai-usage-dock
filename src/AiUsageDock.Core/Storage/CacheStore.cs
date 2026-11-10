@@ -105,6 +105,13 @@ public sealed class CacheStore
             snapshot.TierId,
             snapshot.Models
                 .Select(m => new CachedModel(m.ModelId, m.Family, m.Label, m.RemainingFraction, m.ResetAt))
+                .ToList(),
+            snapshot.QuotaGroups?
+                .Select(g => new CachedGroup(
+                    g.DisplayName,
+                    g.Buckets
+                        .Select(b => new CachedBucket(b.BucketId, b.DisplayName, b.Window, b.RemainingFraction, b.ResetAt))
+                        .ToList()))
                 .ToList());
     }
 
@@ -134,7 +141,20 @@ public sealed class CacheStore
             .ToList();
 
         var (groups, poolCount) = QuotaGrouper.GroupModels(models);
-        return new AntigravitySnapshot(cached.PlanName, cached.TierId, models, groups, poolCount, cached.FetchedAt);
+
+        IReadOnlyList<QuotaGroupSummary>? quotaGroups = null;
+        if (cached.QuotaGroups is { Count: > 0 })
+        {
+            quotaGroups = cached.QuotaGroups
+                .Select(g => new QuotaGroupSummary(
+                    g.DisplayName,
+                    g.Buckets
+                        .Select(b => new QuotaBucket(b.BucketId, b.DisplayName, b.Window, b.RemainingFraction, b.ResetAt))
+                        .ToList()))
+                .ToList();
+        }
+
+        return new AntigravitySnapshot(cached.PlanName, cached.TierId, models, groups, poolCount, cached.FetchedAt, quotaGroups);
     }
 
     private sealed record CacheFile(int Schema, CachedDeepSeek? DeepSeek, CachedAntigravity? Antigravity);
@@ -143,9 +163,18 @@ public sealed class CacheStore
 
     private sealed record CachedModel(string ModelId, string Family, string Label, double? RemainingFraction, DateTimeOffset? ResetAt);
 
+    private sealed record CachedBucket(string BucketId, string DisplayName, string Window, double? RemainingFraction, DateTimeOffset? ResetAt);
+
+    private sealed record CachedGroup(string DisplayName, List<CachedBucket> Buckets);
+
     private sealed record CachedDeepSeek(DateTimeOffset FetchedAt, bool IsAvailable, List<CachedBalance> Balances);
 
-    private sealed record CachedAntigravity(DateTimeOffset FetchedAt, string PlanName, string? TierId, List<CachedModel> Models);
+    private sealed record CachedAntigravity(
+        DateTimeOffset FetchedAt,
+        string PlanName,
+        string? TierId,
+        List<CachedModel> Models,
+        List<CachedGroup>? QuotaGroups);
 }
 
 public sealed record CachedUsage(DeepSeekSnapshot? DeepSeek, AntigravitySnapshot? Antigravity)
