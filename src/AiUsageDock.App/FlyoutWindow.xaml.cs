@@ -31,6 +31,7 @@ public partial class FlyoutWindow : Window
     private readonly Func<IReadOnlyList<BalanceHistoryPoint>> _getHistory;
     private DateTimeOffset _shownAtUtc;
     private bool _closing;
+    private bool _everActivated;
     private DispatcherTimer? _hintTimer;
 
     public FlyoutWindow(
@@ -59,9 +60,13 @@ public partial class FlyoutWindow : Window
             Activate();
         };
 
+        Activated += (_, _) => _everActivated = true;
+
         Deactivated += (_, _) =>
         {
-            if ((DateTimeOffset.UtcNow - _shownAtUtc).TotalMilliseconds > 250)
+            // Only auto-close once the panel actually had focus. A NOACTIVATE owner can make
+            // Activate() fail, and closing on that first Deactivated hid the panel instantly.
+            if (_everActivated && (DateTimeOffset.UtcNow - _shownAtUtc).TotalMilliseconds > 250)
             {
                 // Closing directly inside WM_ACTIVATE throws (Window.VerifyNotClosing).
                 Dispatcher.BeginInvoke(new Action(SafeClose), System.Windows.Threading.DispatcherPriority.Background);
@@ -439,7 +444,7 @@ public partial class FlyoutWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => _onOpenSettings();
 
-    private void OnExitClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+    private void OnExitClick(object sender, RoutedEventArgs e) => App.RequestExit();
 
     private static string HealthText(ProviderHealth health) => health switch
     {
@@ -456,3 +461,4 @@ public partial class FlyoutWindow : Window
         _ => Bad
     };
 }
+

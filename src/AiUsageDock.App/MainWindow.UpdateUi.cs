@@ -216,7 +216,7 @@ namespace AiUsageDock.App
 
         private async void OnMenuRefreshClick(object sender, RoutedEventArgs e) => await RefreshAllAsync();
         private void OnMenuSettingsClick(object sender, RoutedEventArgs e) => OpenSettingsWindow();
-        private void OnMenuExitClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+        private void OnMenuExitClick(object sender, RoutedEventArgs e) => App.RequestExit();
 
         private void OpenSettingsWindow()
         {
@@ -269,3 +269,4 @@ namespace AiUsageDock.App
         private IReadOnlyList<string> GetPinned() => _settings.Pinned ?? DefaultPinned;
     }
 }
+

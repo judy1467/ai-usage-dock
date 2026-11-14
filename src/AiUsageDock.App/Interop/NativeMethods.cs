@@ -8,6 +8,9 @@ namespace AiUsageDock.App.Interop
         // Win32 window style constants
         public const int GWL_EXSTYLE = -20;
 
+        /// <summary>Owner window (SetWindowLongPtr index -8).</summary>
+        public const int GWLP_HWNDPARENT = -8;
+
         public const int WS_EX_TOOLWINDOW = 0x00000080;
         public const int WS_EX_NOACTIVATE = 0x08000000;
         public const int WS_EX_TOPMOST = 0x00000008;

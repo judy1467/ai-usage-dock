@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private TrayIconHost? _tray;
     private FlyoutWindow? _flyout;
     private IntPtr _hwnd;
+    private IntPtr _ownedTaskbar;
     private DockRect _lastDockRect;
     private bool _hiddenForFullscreen;
     private bool _isSettingsOpen;
@@ -86,7 +87,15 @@ public partial class MainWindow : Window
         _store.Changed += () => Dispatcher.InvokeAsync(UpdateDockUi);
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
-        Closed += (_, _) => _tray?.Dispose();
+        Closed += (_, _) =>
+        {
+            // Stop polling before the window goes away; the app may recreate it (Explorer restart).
+            _topmostTimer.Stop();
+            _agTimer.Stop();
+            _dsTimer.Stop();
+            _tray?.Dispose();
+            _tray = null;
+        };
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -119,7 +128,7 @@ public partial class MainWindow : Window
         _tray.OpenRequested += () => Dispatcher.Invoke(ShowFlyout);
         _tray.RefreshRequested += () => Dispatcher.Invoke(() => _ = RefreshAllAsync());
         _tray.SettingsRequested += () => Dispatcher.Invoke(OpenSettingsWindow);
-        _tray.ExitRequested += () => Dispatcher.Invoke(() => Application.Current.Shutdown());
+        _tray.ExitRequested += () => Dispatcher.Invoke(App.RequestExit);
     }
 
     private void RestoreCachedSnapshots()
@@ -222,6 +231,14 @@ public partial class MainWindow : Window
         var dpi = VisualTreeHelper.GetDpi(this);
         var scale = dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0;
 
+        // Owning the dock to the taskbar keeps it above the bar without fighting for z-order:
+        // an owned window always travels with its owner, so clicking the taskbar cannot cover it.
+        if (taskbar.Handle != _ownedTaskbar)
+        {
+            NativeMethods.SetWindowLongPtr(_hwnd, NativeMethods.GWLP_HWNDPARENT, taskbar.Handle);
+            _ownedTaskbar = taskbar.Handle;
+        }
+
         var layout = DockLayout.Compute(new DockLayoutRequest(
             taskbar.Rect,
             taskbar.Edge,
@@ -234,7 +251,7 @@ public partial class MainWindow : Window
             OffsetPx: _settings.Dock?.OffsetX ?? 0,
             TrayReserveDip: TrayReserveDip,
             GapDip: 4,
-            PreferOnTaskbar: false));
+            PreferOnTaskbar: true));
 
         if (Math.Abs(Height - layout.HeightDip) > 0.35)
         {
@@ -349,3 +366,4 @@ public partial class MainWindow : Window
         }
     }
 }
+

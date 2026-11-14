@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace AiUsageDock.App;
@@ -15,7 +16,18 @@ public partial class App : Application
         "AiUsageDock",
         "startup.log");
 
+    private static bool _exiting;
+    private static int _restarts;
+    private static DateTimeOffset _restartWindowStart = DateTimeOffset.UtcNow;
+
     private Mutex? _instanceMutex;
+
+    /// <summary>Single place for tray/flyout exit so auto-recreation does not fight it.</summary>
+    public static void RequestExit()
+    {
+        _exiting = true;
+        Current?.Shutdown();
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -49,8 +61,48 @@ public partial class App : Application
         base.OnStartup(e);
 
         var window = new MainWindow();
+        window.Closed += OnMainWindowClosed;
         MainWindow = window;
         window.Show();
+    }
+
+    /// <summary>
+    /// The dock is owned by the taskbar, so an Explorer restart destroys it. Recreate it instead
+    /// of exiting (with a small rate limit so a crash loop cannot spin forever).
+    /// </summary>
+    private void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (now - _restartWindowStart > TimeSpan.FromMinutes(1))
+        {
+            _restartWindowStart = now;
+            _restarts = 0;
+        }
+
+        if (++_restarts > 5)
+        {
+            RequestExit();
+            return;
+        }
+
+        Dispatcher.BeginInvoke(async () =>
+        {
+            await Task.Delay(800);
+            if (_exiting)
+            {
+                return;
+            }
+
+            var window = new MainWindow();
+            window.Closed += OnMainWindowClosed;
+            MainWindow = window;
+            window.Show();
+        });
     }
 
     protected override void OnExit(ExitEventArgs e)
