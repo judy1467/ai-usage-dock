@@ -28,7 +28,8 @@ public sealed record DockLayoutRequest(
     int MinOnTaskbarHeightDip,
     int OffsetPx,
     int TrayReserveDip,
-    int GapDip);
+    int GapDip,
+    bool PreferOnTaskbar = true);
 
 public sealed record DockLayoutResult(DockRect Rect, double HeightDip, bool OnTaskbar);
 
@@ -60,7 +61,10 @@ public static class DockLayout
                          && taskbar.Height <= HiddenTaskbarThresholdPx;
 
         var innerHeight = taskbar.Height - 2 * gap;
-        var onTaskbar = !autoHidden && innerHeight >= minOnTaskbar && innerHeight > 0;
+        var onTaskbar = request.PreferOnTaskbar
+                        && !autoHidden
+                        && innerHeight >= minOnTaskbar
+                        && innerHeight > 0;
 
         int height;
         int top;

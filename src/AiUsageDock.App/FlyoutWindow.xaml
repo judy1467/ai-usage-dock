@@ -120,7 +120,7 @@
                 </Grid>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="ModelsPanel" />
+                    <StackPanel x:Name="ModelsPanel" Margin="0,0,12,0" />
                 </ScrollViewer>
             </Grid>
 

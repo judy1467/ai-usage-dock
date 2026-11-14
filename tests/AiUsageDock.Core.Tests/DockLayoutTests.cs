@@ -35,6 +35,18 @@ public class DockLayoutTests
     }
 
     [Fact]
+    public void Bottom_PreferAboveTaskbar_ParksAboveEvenWhenTaskbarIsTall()
+    {
+        var request = BottomRequest(taskbarHeight: 72) with { PreferOnTaskbar = false };
+
+        var result = DockLayout.Compute(request);
+
+        Assert.False(result.OnTaskbar);
+        Assert.Equal(46 * 1.5, result.Rect.Height, 0);
+        Assert.Equal(2160 - 72 - 69 - 6, result.Rect.Top);
+    }
+
+    [Fact]
     public void Bottom_AutoHiddenTaskbar_SitsAboveTheRevealStrip()
     {
         var result = DockLayout.Compute(BottomRequest(taskbarHeight: 2, autoHide: true));

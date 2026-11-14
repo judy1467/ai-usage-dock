@@ -166,7 +166,44 @@ public partial class MainWindow : Window
         }
 
         UpdateDockGeometry();
-        NativeMethods.EnsureTopmostAboveTaskbar(_hwnd);
+
+        // Re-assert topmost only when the taskbar is actually covering the dock. Doing it on
+        // every tick made the strip flicker while the user clicked the taskbar.
+        if (IsCoveredByTaskbar(_lastDockRect))
+        {
+            NativeMethods.EnsureTopmostAboveTaskbar(_hwnd);
+        }
+    }
+
+    private bool IsCoveredByTaskbar(DockRect rect)
+    {
+        if (_hwnd == IntPtr.Zero || rect.Width <= 0 || rect.Height <= 0)
+        {
+            return false;
+        }
+
+        var point = new NativeMethods.POINT
+        {
+            X = rect.Left + rect.Width / 2,
+            Y = rect.Top + rect.Height / 2,
+        };
+
+        var top = NativeMethods.WindowFromPoint(point);
+        if (top == IntPtr.Zero || top == _hwnd)
+        {
+            return false;
+        }
+
+        var root = NativeMethods.GetAncestor(top, NativeMethods.GA_ROOT);
+        if (root == IntPtr.Zero)
+        {
+            root = top;
+        }
+
+        var className = new System.Text.StringBuilder(64);
+        NativeMethods.GetClassName(root, className, className.Capacity);
+        var cls = className.ToString();
+        return cls is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd";
     }
 
     private void UpdateDockGeometry()
@@ -196,7 +233,8 @@ public partial class MainWindow : Window
             MinOnTaskbarHeightDip: MinOnTaskbarHeightDip,
             OffsetPx: _settings.Dock?.OffsetX ?? 0,
             TrayReserveDip: TrayReserveDip,
-            GapDip: 4));
+            GapDip: 4,
+            PreferOnTaskbar: false));
 
         if (Math.Abs(Height - layout.HeightDip) > 0.35)
         {
